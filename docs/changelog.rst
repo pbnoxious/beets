@@ -124,6 +124,11 @@ New features:
   separators to support path queries.
   Thanks to :user:`nmeum`.
   :bug:`3567`
+* ``beet import`` now handles tar archives with bzip2 or gzip compression.
+  :bug:`3606`
+* :doc:`/plugins/plexupdate`: Add option to use secure connection to Plex
+  server, and to ignore certificate validation errors if necessary.
+  :bug:`2871`
 
 Fixes:
 
@@ -205,6 +210,10 @@ Fixes:
 * :doc:`/plugins/lyrics`: Adapt the Genius backend to changes in markup to
   reduce the scraping failure rate.
   :bug:`3535` :bug:`3594`
+* :doc:`/plugins/lyrics`: Fix crash when writing ReST files for a query without
+  results or fetched lyrics
+  :bug:`2805`
+* Adapt to breaking changes in Python's ``ast`` module in 3.8
 
 For plugin developers:
 
