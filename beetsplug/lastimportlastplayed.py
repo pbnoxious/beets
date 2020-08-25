@@ -47,6 +47,7 @@ class LastImportPlugin(plugins.BeetsPlugin):
             'retry_limit': 3,
             'time_from': None,
             'time_to': None,
+            'ask_user_query': True,
         })
 
         self._command = ui.Subcommand('lastimportlastplayed', help=u'import last.fm last_played times')
@@ -65,7 +66,8 @@ class LastImportPlugin(plugins.BeetsPlugin):
             self.config.set_args(opts)
             time_from = self.config['time_from'].get()
             time_to = self.config['time_to'].get()
-            import_lastfm_last_played(lib, self._log, time_from=time_from, time_to=time_to)
+            ask_user_query = self.config['ask_user_query'].get()
+            import_lastfm_last_played(lib, self._log, time_from=time_from, time_to=time_to, ask_user_query=ask_user_query)
 
         self._command.func = func
         return [self._command]
@@ -132,7 +134,7 @@ class CustomUser(pylast.User):
         return seq, total_pages
 
 
-def import_lastfm_last_played(lib, log, time_from, time_to):
+def import_lastfm_last_played(lib, log, time_from, time_to, ask_user_query):
     user = config['lastfm']['user'].as_str()
     per_page = config['lastimportlastplayed']['per_page'].get(int)
 
@@ -161,7 +163,7 @@ def import_lastfm_last_played(lib, log, time_from, time_to):
                 raise ui.UserError(u'Last.fm reported no data.')
 
             if tracks:
-                found, not_updated, unknown = process_tracks(lib, tracks, log)
+                found, not_updated, unknown = process_tracks(lib, tracks, log, ask_user_query)
                 found_total += found
                 not_updated_total += not_updated
                 unknown_total += unknown
@@ -204,7 +206,7 @@ def fetch_tracks(user, page, limit, time_from, time_to):
     return results, total_pages
 
 
-def process_tracks(lib, tracks, log):
+def process_tracks(lib, tracks, log, ask_user_query):
     total = len(tracks)
     total_found = 0
     not_updated = 0
@@ -238,7 +240,8 @@ def process_tracks(lib, tracks, log):
                 dbcore.query.SubstringQuery('album', album),
                 dbcore.query.SubstringQuery('title', title)
             ])
-            song = lib.items(query).get()
+            results = lib.items(query)
+            song = select_result(results, lib)
 
         # If not, try just artist/title
         if song is None:
@@ -247,7 +250,8 @@ def process_tracks(lib, tracks, log):
                 dbcore.query.SubstringQuery('artist', artist),
                 dbcore.query.SubstringQuery('title', title)
             ])
-            song = lib.items(query).get()
+            results = lib.items(query)
+            song = select_result(results, lib)
 
         # Last resort, try just replacing to utf-8 quote
         if song is None:
@@ -257,28 +261,39 @@ def process_tracks(lib, tracks, log):
                 dbcore.query.SubstringQuery('artist', artist),
                 dbcore.query.SubstringQuery('title', title)
             ])
-            song = lib.items(query).get()
+            results = lib.items(query)
+            song = select_result(results, lib)
 
         # if fuzzy query is installed: try first with fuzzy title
         if song is None and FUZZY_AVAIL:
-            log.debug(u'no match, trying fuzzy search')
+            log.debug(u'no match, trying fuzzy search on title')
             query = dbcore.AndQuery([
                 dbcore.query.SubstringQuery('artist', artist),
                 FuzzyQuery('title', title)
             ])
             results = lib.items(query)
-            # then also with artist
-            if results is None:
-                query = dbcore.AndQuery([
-                    FuzzyQuery('artist', artist),
-                    FuzzyQuery('title', title)
-                ])
-                results = lib.items(query)
-            if results is not None:
-                if len(results) == 1:
-                    song = results[0]
-                else:
-                    song = select_result(results, lib)
+            song = select_result(results, lib)
+        # same with artist artist
+        if song is None and FUZZY_AVAIL:
+            log.debug(u'no match, trying fuzzy search on artist')
+            query = dbcore.AndQuery([
+                FuzzyQuery('artist', artist),
+                dbcore.query.SubstringQuery('title', title),
+            ])
+            results = lib.items(query)
+            song = select_result(results, lib)
+        # now with both
+        if song is None and FUZZY_AVAIL:
+            log.debug(u'no match, trying fuzzy search on both')
+            query = dbcore.AndQuery([
+                FuzzyQuery('artist', artist),
+                FuzzyQuery('title', title)
+            ])
+            results = lib.items(query)
+            song = select_result(results, lib)
+
+        if song is None and ask_user_query:
+            song = user_query(lib, True)
 
         if song is not None:
             last_played = int(song.get('last_played', 0))
@@ -305,7 +320,15 @@ def process_tracks(lib, tracks, log):
 
     return total_found, not_updated, total_fails
 
-def select_result(results, lib):
+def select_result(results, lib, ask_query=False):
+    if len(results) == 0:
+        if ask_query:
+            return user_query(lib, True)
+        return None
+
+    if len(results) == 1:
+        return results[0]
+
     num_res = len(results)
     print(u'{0} matches for query, choose one:'.format(num_res))
     for i, r in enumerate(results):
@@ -318,24 +341,24 @@ def select_result(results, lib):
         if choice == "s":
             return None
         if choice == "e":
-            song = user_query(lib, True)
-            return song
+            return user_query(lib, False)
         try:
             choice = int(choice)
-        except ValueError as e:
+        except ValueError:
             print(u'Input could not be parsed correctly: {}'.format(choice))
             continue
         if choice >= num_res or choice < 0:
             print(u'Input number is not one of the given choices')
             continue
-        else:
-            return results[choice]
+        song = results[choice]
+    return song
 
 
-def user_query(lib, do_query=False):
-    if not do_query:
-        do_query = input(u'Manual query? y / [n]: ').lower()
-    if do_query:
-        query_str = input(u'Enter custom query string: ')
-        query, sort = library.parse_query_string(query_str, library.Item)
-        return select_result(lib.items(query, sort), lib)
+def user_query(lib, ask_query=True):
+    if ask_query:
+        str_do_query = input(u'No matches, manual query? y / [n]: ').lower()
+        if str_do_query != 'y':
+            return None
+    query_str = input(u'Enter custom query string: ')
+    query, sort = library.parse_query_string(query_str, library.Item)
+    return select_result(lib.items(query, sort), lib, True)
