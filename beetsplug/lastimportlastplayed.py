@@ -52,11 +52,11 @@ class LastImportPlugin(plugins.BeetsPlugin):
 
         self._command = ui.Subcommand('lastimportlastplayed', help=u'import last.fm last_played times')
         self._command.parser.add_option(
-            u'-f', u'--from', dest='time_from', type=int,
+            u'-f', u'--from', dest='time_from',
             help=u'time from which play dates will be imported as UNIX timestamp',
         )
         self._command.parser.add_option(
-            u'-t', u'--to', dest='time_to', type=int,
+            u'-t', u'--to', dest='time_to',
             help=u'time until which play dates will be imported as UNIX timestamp',
         )
 
@@ -141,7 +141,10 @@ def import_lastfm_last_played(lib, log, time_from, time_to, ask_user_query):
     if not user:
         raise ui.UserError(u'You must specify a user name for lastimportlastplayed')
 
-    log.info(u'Fetching recent tracks from last.fm for @{0}', user)
+    time_from_stamp = parse_time(time_from)
+    time_to_stamp = parse_time(time_to)
+    log.info(u'Fetching tracks from last.fm for @{0} between {1} and {2}',
+             user, time_from_stamp, time_to_stamp)
 
     page_total = 1
     page_current = 0
@@ -157,7 +160,7 @@ def import_lastfm_last_played(lib, log, time_from, time_to, ask_user_query):
 
         for retry in range(0, retry_limit):
             tracks, page_total = fetch_tracks(user, page_current + 1, per_page,
-                                              time_from, time_to)
+                                              time_from_stamp, time_to_stamp)
             if page_total < 1:
                 # It means nothing to us!
                 raise ui.UserError(u'Last.fm reported no data.')
@@ -321,6 +324,7 @@ def process_tracks(lib, tracks, log, ask_user_query):
     return total_found, not_updated, total_fails
 
 def select_result(results, lib, ask_query=False):
+    """Check a Result instance from a query and let the user decide what to do next"""
     if len(results) == 0:
         if ask_query:
             return user_query(lib, True)
@@ -362,3 +366,12 @@ def user_query(lib, ask_query=True):
     query_str = input(u'Enter custom query string: ')
     query, sort = library.parse_query_string(query_str, library.Item)
     return select_result(lib.items(query, sort), lib, True)
+
+
+def parse_time(time):
+    """Transform a date/time given as string to a timestamp or just return the int"""
+    if isinstance(time, (int, float)):
+        return int(time)
+    elif isinstance(time, str):
+        period = dbcore.query.Period.parse(time)
+        return int(period.date.timestamp())
