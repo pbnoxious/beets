@@ -14,6 +14,8 @@
 # included in all copies or substantial portions of the Software.
 
 from __future__ import division, absolute_import, print_function
+from sqlite3 import OperationalError
+import time
 
 import pylast
 from pylast import _extract
@@ -304,9 +306,14 @@ def process_tracks(lib, tracks, log, ask_user_query):
                 log.debug(u'match: {0} - {1} ({2}) '
                           u'updating: last_played {3} => {4}',
                           song.artist, song.title, song.album, last_played, timestamp)
-                song['last_played'] = timestamp
-                song.store()
-                total_found += 1
+                while True:
+                    try:
+                        song['last_played'] = timestamp
+                        song.store()
+                        total_found += 1
+                        break
+                    except OperationalError: # when database is locked
+                        time.sleep(3)
             else:
                 log.debug(u'match: {0} - {1} ({2}) '
                           u'not updating: {3} is not newer than current {4}',
@@ -318,8 +325,8 @@ def process_tracks(lib, tracks, log, ask_user_query):
                      artist, title, album)
 
     if total_fails > 0:
-        log.info(u'Updated {0}/{1})',
-                 total_found, total, total_fails)
+        log.info(u'Updated {0} of {1}',
+                 total_found, total)
 
     return total_found, not_updated, total_fails
 
@@ -368,10 +375,13 @@ def user_query(lib, ask_query=True):
     return select_result(lib.items(query, sort), lib, True)
 
 
-def parse_time(time):
-    """Transform a date/time given as string to a timestamp or just return the int"""
-    if isinstance(time, (int, float)):
-        return int(time)
-    elif isinstance(time, str):
-        period = dbcore.query.Period.parse(time)
-        return int(period.date.timestamp())
+def parse_time(timestr):
+    """Transform a date/time given as string to a timestamp"""
+    try:  # was given as int
+        return int(timestr)
+    except ValueError:
+        try:  # youtube API doesn't allow floats, so cut off precision
+            return int(float(timestr))
+        except ValueError:
+            period = dbcore.query.Period.parse(timestr)
+            return int(period.date.timestamp())
