@@ -246,20 +246,20 @@ def process_tracks(lib, tracks, log, ask_user_query):
                 dbcore.query.SubstringQuery('title', title)
             ])
             results = lib.items(query)
-            song = select_result(results, lib)
+            song, skip = select_result(results, lib)
 
         # If not, try just artist/title
-        if song is None:
+        if song is None and not skip:
             log.debug(u'no album match, trying by only artist/title')
             query = dbcore.AndQuery([
                 dbcore.query.SubstringQuery('artist', artist),
                 dbcore.query.SubstringQuery('title', title)
             ])
             results = lib.items(query)
-            song = select_result(results, lib)
+            song, skip = select_result(results, lib)
 
         # Last resort, try just replacing to utf-8 quote
-        if song is None:
+        if song is None and not skip:
             title = title.replace("'", u'\u2019')
             log.debug(u'no title match, trying utf-8 single quote')
             query = dbcore.AndQuery([
@@ -267,38 +267,38 @@ def process_tracks(lib, tracks, log, ask_user_query):
                 dbcore.query.SubstringQuery('title', title)
             ])
             results = lib.items(query)
-            song = select_result(results, lib)
+            song, skip = select_result(results, lib)
 
         # if fuzzy query is installed: try first with fuzzy title
-        if song is None and FUZZY_AVAIL:
+        if song is None and FUZZY_AVAIL and not skip:
             log.debug(u'no match, trying fuzzy search on title')
             query = dbcore.AndQuery([
                 dbcore.query.SubstringQuery('artist', artist),
                 FuzzyQuery('title', title)
             ])
             results = lib.items(query)
-            song = select_result(results, lib)
+            song, skip = select_result(results, lib)
         # same with artist artist
-        if song is None and FUZZY_AVAIL:
+        if song is None and FUZZY_AVAIL and not skip:
             log.debug(u'no match, trying fuzzy search on artist')
             query = dbcore.AndQuery([
                 FuzzyQuery('artist', artist),
                 dbcore.query.SubstringQuery('title', title),
             ])
             results = lib.items(query)
-            song = select_result(results, lib)
+            song, skip = select_result(results, lib)
         # now with both
-        if song is None and FUZZY_AVAIL:
+        if song is None and FUZZY_AVAIL and not skip:
             log.debug(u'no match, trying fuzzy search on both')
             query = dbcore.AndQuery([
                 FuzzyQuery('artist', artist),
                 FuzzyQuery('title', title)
             ])
             results = lib.items(query)
-            song = select_result(results, lib)
+            song, skip = select_result(results, lib)
 
-        if song is None and ask_user_query:
-            song = user_query(lib, True)
+        if song is None and ask_user_query and not skip:
+            song, skip = user_query(lib, True)
 
         if song is not None:
             last_played = int(song.get('last_played', 0))
@@ -331,14 +331,18 @@ def process_tracks(lib, tracks, log, ask_user_query):
     return total_found, not_updated, total_fails
 
 def select_result(results, lib, ask_query=False):
-    """Check a Result instance from a query and let the user decide what to do next"""
+    """Check a Result instance from a query and let the user decide what to do next
+
+    :return song: database track matching query
+    :return skip: skip other queries for current track
+    """
     if len(results) == 0:
         if ask_query:
             return user_query(lib, True)
-        return None
+        return None, False
 
     if len(results) == 1:
-        return results[0]
+        return results[0], False
 
     num_res = len(results)
     print(u'{0} matches for query, choose one:'.format(num_res))
@@ -350,7 +354,7 @@ def select_result(results, lib, ask_query=False):
         choice = input(u'Your choice? (0 - {0}, "s" to skip, "e" for custom query):\n'
                        .format(num_res - 1))
         if choice == "s":
-            return None
+            return None, True
         if choice == "e":
             return user_query(lib, False)
         try:
@@ -362,14 +366,14 @@ def select_result(results, lib, ask_query=False):
             print(u'Input number is not one of the given choices')
             continue
         song = results[choice]
-    return song
+    return song, False
 
 
 def user_query(lib, ask_query=True):
     if ask_query:
         str_do_query = input(u'No matches, manual query? y / [n]: ').lower()
         if str_do_query != 'y':
-            return None
+            return None, False
     query_str = input(u'Enter custom query string: ')
     query, sort = library.parse_query_string(query_str, library.Item)
     return select_result(lib.items(query, sort), lib, True)
