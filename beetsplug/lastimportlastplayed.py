@@ -161,9 +161,14 @@ def import_lastfm_last_played(lib, log, time_from, time_to, ask_user_query):
                  '/{}'.format(page_total) if page_total > 1 else '')
 
         for retry in range(0, retry_limit):
-            tracks, page_total = fetch_tracks(user, page_current + 1, per_page,
-                                              time_from_stamp, time_to_stamp)
-            if page_total < 1:
+            tracks = None
+            try:
+                tracks, page_total = fetch_tracks(user, page_current + 1, per_page,
+                                                  time_from_stamp, time_to_stamp)
+            except pylast.WSError:
+                log.info(u'Could not get data from Last.fm web service.')
+
+            if page_total < 1 and retry == retry_limit:
                 # It means nothing to us!
                 raise ui.UserError(u'Last.fm reported no data.')
 
