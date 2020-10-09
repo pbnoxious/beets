@@ -228,23 +228,17 @@ def process_tracks(lib, tracks, log, ask_user_query):
             continue
 
         song = None
-        trackid = t.track.mbid.strip() if t.track.mbid else ''
-        artist = t.track.artist.name.strip() if t.track.artist.name else ''
-        title = t.track.title.strip() if t.track.title else ''
+        artist = t.track.artist.name.strip() if t.track.artist.name else None
+        title = t.track.title.strip() if t.track.title else None
         album = t.album.strip() if t.album else None
         timestamp = int(t.timestamp)
 
         log.debug(u'query: {0} - {1} ({2})', artist, title, album)
 
-        # First try to query by musicbrainz's trackid
-        if trackid:
-            song = lib.items(
-                dbcore.query.MatchQuery('mb_trackid', trackid)
-            ).get()
-
-        # If not, try album, artist and title
+        # Try first to match album, artist and title
+        skip = False
         if song is None and album:
-            log.debug(u'no id match, trying by artist, album and title')
+            log.debug(u'trying by artist, album and title')
             query = dbcore.AndQuery([
                 dbcore.query.SubstringQuery('artist', artist),
                 dbcore.query.SubstringQuery('album', album),
