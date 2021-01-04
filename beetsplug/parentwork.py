@@ -96,7 +96,7 @@ class ParentWorkPlugin(BeetsPlugin):
                         item.try_write()
         command = ui.Subcommand(
             'parentwork',
-            help=u'fetche parent works, composers and dates')
+            help=u'fetch parent works, composers and dates')
 
         command.parser.add_option(
             u'-f', u'--force', dest='force',
@@ -129,8 +129,11 @@ class ParentWorkPlugin(BeetsPlugin):
         if 'artist-relation-list' in work_info['work']:
             for artist in work_info['work']['artist-relation-list']:
                 if artist['type'] == 'composer':
+                    composer_exists = True
                     parent_composer.append(artist['artist']['name'])
                     parent_composer_sort.append(artist['artist']['sort-name'])
+                    if 'end' in artist.keys():
+                        parentwork_info["parentwork_date"] = artist['end']
 
             parentwork_info['parent_composer'] = u', '.join(parent_composer)
             parentwork_info['parent_composer_sort'] = u', '.join(
@@ -207,4 +210,4 @@ add one at https://musicbrainz.org/recording/{}', item, item.mb_trackid)
             item, fields=['parentwork', 'parentwork_disambig',
                           'mb_parentworkid', 'parent_composer',
                           'parent_composer_sort', 'work_date',
-                          'parentwork_workid_current'])
+                          'parentwork_workid_current', 'parentwork_date'])
