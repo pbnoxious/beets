@@ -150,6 +150,7 @@ setup(
         'kodiupdate': ['requests'],
         'lastgenre': ['pylast'],
         'lastimport': ['pylast'],
+        'lastimportlastplayed': ['pylast'],
         'lyrics': ['requests', 'beautifulsoup4', 'langdetect'],
         'mpdstats': ['python-mpd2>=0.4.2'],
         'plexupdate': ['requests'],
