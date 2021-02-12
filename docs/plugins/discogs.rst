@@ -10,9 +10,9 @@ Installation
 ------------
 
 To use the ``discogs`` plugin, first enable it in your configuration (see
-:ref:`using-plugins`). Then, install the `discogs-client`_ library by typing::
+:ref:`using-plugins`). Then, install the `discogs_api`_ library by typing::
 
-    pip install discogs-client
+    pip install discogs_api
 
 You will also need to register for a `Discogs`_ account, and provide
 authentication credentials via a personal access token or an OAuth2
@@ -36,7 +36,7 @@ Authentication via Personal Access Token
 
 As an alternative to OAuth, you can get a token from Discogs and add it to
 your configuration.
-To get a personal access token (called a "user token" in the `discogs-client`_
+To get a personal access token (called a "user token" in the `discogs_api`_
 documentation), login to `Discogs`_, and visit the
 `Developer settings page
 <https://www.discogs.com/settings/developers>`_. Press the ``Generate new
@@ -89,4 +89,4 @@ Here are two things you can try:
 * Make sure that your system clock is accurate. The Discogs servers can reject
   your request if your clock is too out of sync.
 
-.. _discogs-client: https://github.com/discogs/discogs_client
+.. _discogs_api: https://github.com/grawlinson/python-discogs-api

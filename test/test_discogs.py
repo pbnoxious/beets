@@ -27,7 +27,7 @@ from beetsplug.discogs import DiscogsPlugin
 
 class DGAlbumInfoTest(_common.TestCase):
     def _make_release(self, tracks=None):
-        """Returns a Bag that mimics a discogs_client.Release. The list
+        """Returns a Bag that mimics a discogs_api.Release. The list
         of elements on the returned Bag is incomplete, including just
         those required for the tests on this class."""
         data = {
@@ -75,7 +75,7 @@ class DGAlbumInfoTest(_common.TestCase):
             'duration': duration
         }
         if type_ is not None:
-            # Test samples on discogs_client do not have a 'type_' field, but
+            # Test samples on discogs_api do not have a 'type_' field, but
             # the API seems to return it. Values: 'track' for regular tracks,
             # 'heading' for descriptive texts (ie. not real tracks - 12.13.2).
             track['type_'] = type_
@@ -83,7 +83,7 @@ class DGAlbumInfoTest(_common.TestCase):
         return track
 
     def _make_release_from_positions(self, positions):
-        """Return a Bag that mimics a discogs_client.Release with a
+        """Return a Bag that mimics a discogs_api.Release with a
         tracklist where tracks have the specified `positions`."""
         tracks = [self._make_track('TITLE%s' % i, position) for
                   (i, position) in enumerate(positions, start=1)]

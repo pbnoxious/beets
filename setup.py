@@ -113,7 +113,7 @@ setup(
         'test': [
             'beautifulsoup4',
             'coverage',
-            'discogs-client',
+            'discogs_api',
             'flask',
             'mock',
             'pylast',
@@ -144,7 +144,7 @@ setup(
         'embyupdate': ['requests'],
         'chroma': ['pyacoustid'],
         'gmusic': ['gmusicapi'],
-        'discogs': ['discogs-client>=2.2.1'],
+        'discogs': ['discogs_api'],
         'beatport': ['requests-oauthlib>=0.6.1'],
         'kodiupdate': ['requests'],
         'lastgenre': ['pylast'],
